@@ -1,61 +1,541 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  Text, View, TextInput, ScrollView, Image, Pressable, TouchableOpacity, TouchableWithoutFeedback, TouchableHighlight, SafeAreaView, Linking, FlatList, Alert, Platform, ActivityIndicator
-} from "react-native";
-import Styles from './style';
-import { Colors } from '../../Constants/Colors'
-import { Calibri } from '../../Constants/Fonts';
-import { Images } from '../../Constants/ImageIconContant';
+  Platform,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  View,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
+import TextInputContainer from '../../Component/TextInputContainer';
+import SocketIOClient from 'socket.io-client';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Feather from 'react-native-vector-icons/Feather';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import { responsiveHeight, responsiveWidth, responsiveFontSize } from "react-native-responsive-dimensions";
-import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
-import { Icon } from 'react-native-basic-elements';
-import Swiper from "react-native-swiper";
-import { ImageSlider } from "react-native-image-slider-banner";
-import HeaderBack from '../../Component/HeaderBack';
-// create a component
-const VideoCall = ({ props, route, navigation }) => {
+import {
+  mediaDevices,
+  RTCPeerConnection,
+  RTCView,
+  RTCIceCandidate,
+  RTCSessionDescription,
+} from 'react-native-webrtc';
 
-  const styles = Styles();
+import IconContainer from '../../Component/IconContainer';
+import InCallManager from 'react-native-incall-manager';
+import { responsiveFontSize } from 'react-native-responsive-dimensions';
+import { useCall } from '../../context/callcontext';
+const VideoCall = ({ route, navigation }) => {
+  const { userId, isVideo, localUserId, f_name,fcm_token,rtcMessage,typem } = route.params;
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [type, setType] = useState('JOIN');
+  const [localMicOn, setLocalMicOn] = useState(true);
+  const [localWebcamOn, setLocalWebcamOn] = useState(true);
+ console.log(route.params)
+  const otherUserId = useRef(userId);
+  const socket = useRef(null);
+  const peerConnection = useRef(null);
+  const remoteRTCMessage = useRef(null);
+  const { setIncomingCall } = useCall();
+  
 
-  return (
-    <View style={{ flex: 1, }}>
+  const ICE_SERVERS = {
+    iceServers: [
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.stunprotocol.org:3478' },
+      { urls: 'stun:stun.sipgate.net' },
+      { urls: 'stun:stun.ideasip.com' },
+      { urls: 'stun:stun.iptel.org' },
+    ],
+  };
+  
 
-      <Image source={require('../../assets/images/videocallimage.jpg')} style={{height:'100%',width:'100%'}} />
-      <Image source={require('../../assets/images/person.jpg')} style={{height:responsiveWidth(38),width:responsiveWidth(28),position:'absolute',top:20,right:20}} />
-      <View style={{height:59,position:'absolute',bottom:0,width:'100%',backgroundColor:'#fff',flexDirection:'row',alignItems:'center'}}>
-      <TouchableOpacity onPress={() => navigation.navigate('Print')} style={{  width: '25%', alignItems: 'center',  }}>
-                <Feather color={'#999'} name='volume-2' size={responsiveFontSize(2.9)} style={{  borderRadius: 25, }} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('Print')} style={{  width: '25%', alignItems: 'center',  }}>
-                <Feather color={'#999'} name='video' size={responsiveFontSize(2.8)} style={{   }} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('Print')} style={{  width: '25%', alignItems: 'center',  }}>
-                <FontAwesome color={'#999'} name='microphone-slash' size={responsiveFontSize(2.8)} style={{   }} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('Print')} style={{  width: '25%', alignItems: 'center'}}>
-                <MaterialIcons color={'#fff'} name='call-end' size={responsiveFontSize(2.8)} style={{ backgroundColor:'#E70B89' ,padding:10,borderRadius:30 }} />
-              </TouchableOpacity>
-              
+  useEffect(()=>{
+  if(typem=='OUTGOING_CALL'){
+    setType('OUTGOING_CALL');
+    processCall();
+  }
+  },[type])
+   
+
+
+  useEffect(() => {
+    socket.current = SocketIOClient('http://192.168.31.57:4000', {
+        query: {
+            callerId: localUserId,
+        },
+    });
+
+    socket.current.on('newCall', data => {
+        remoteRTCMessage.current = data.rtcMessage;
+        otherUserId.current = data.callerId;
+        setIncomingCall({
+            callerId: data.callerId,
+            rtcMessage: data.rtcMessage,
+        });
+    });
+
+    // Other socket event handlers
+
+    return () => {
+        socket.current.disconnect();
+    };
+}, [localUserId]);
+  useEffect(() => {
+    socket.current = SocketIOClient('http://192.168.31.57:4000', {
+      query: {
+        callerId: localUserId,
+      },
+    });
+
+
+    socket.current.on('newCall', data => {
+      remoteRTCMessage.current = data.rtcMessage;
+      otherUserId.current = data.callerId;
+      setType('INCOMING_CALL');
+    });
+
+    socket.current.on('callAnswered', async data => {
+      remoteRTCMessage.current = data.rtcMessage;
+      await peerConnection.current.setRemoteDescription(
+        new RTCSessionDescription(remoteRTCMessage.current)
+      );
+      setType('WEBRTC_ROOM');
+    });
+
+    socket.current.on('ICEcandidate', data => {
+      const candidate = new RTCIceCandidate(data.rtcMessage);
+      peerConnection.current.addIceCandidate(candidate).catch(err => {
+        console.error('Error adding received ICE candidate', err);
+      });
+    });
+
+    const setupPeerConnection = () => {
+      peerConnection.current = new RTCPeerConnection(ICE_SERVERS);
+
+      peerConnection.current.onicecandidate = event => {
+        if (event.candidate) {
+          sendICEcandidate({
+            calleeId: otherUserId.current,
+            rtcMessage: {
+              label: event.candidate.sdpMLineIndex,
+              id: event.candidate.sdpMid,
+              candidate: event.candidate.candidate,
+            },
+          });
+        } else {
+          console.log('End of candidates.');
+        }
+      };
+
+      peerConnection.current.ontrack = event => {
+        setRemoteStream(event.streams[0]);
+      };
+
+      let isFront = true;
+
+      mediaDevices.enumerateDevices().then(sourceInfos => {
+        let videoSourceId;
+        for (let i = 0; i < sourceInfos.length; i++) {
+          const sourceInfo = sourceInfos[i];
+          if (
+            sourceInfo.kind == 'videoinput' &&
+            sourceInfo.facing == (isFront ? 'user' : 'environment')
+          ) {
+            videoSourceId = sourceInfo.deviceId;
+          }
+        }
+
+        mediaDevices
+          .getUserMedia({
+            audio: true,
+            video: {
+              mandatory: {
+                minWidth: 1280,
+                minHeight: 720,
+                minFrameRate: 30,
+              },
+              facingMode: isFront ? 'user' : 'environment',
+              optional: videoSourceId ? [{ sourceId: videoSourceId }] : [],
+            },
+          })
+          .then(stream => {
+            setLocalStream(stream);
+            stream.getTracks().forEach(track => {
+              peerConnection.current.addTrack(track, stream);
+            });
+          })
+          .catch(error => {
+            console.error('Error accessing media devices:', error);
+          });
+      });
+    };
+
+    setupPeerConnection();
+
+    return () => {
+      socket.current.disconnect();
+      peerConnection.current.close();
+    };
+  }, [localUserId]);
+
+  useEffect(() => {
+    InCallManager.start();
+    InCallManager.setKeepScreenOn(true);
+    InCallManager.setForceSpeakerphoneOn(true);
+
+    return () => {
+      InCallManager.stop();
+    };
+  }, []);
+
+  const sendICEcandidate = data => {
+    socket.current.emit('ICEcandidate', data);
+  };
+
+  const processCall = async () => {
+    const sessionDescription = await peerConnection.current.createOffer();
+    await peerConnection.current.setLocalDescription(sessionDescription);
+    sendCall({
+      calleeId: otherUserId.current,
+      rtcMessage: sessionDescription,
+    });
+  };
+
+  const processAccept = async () => {
+    await peerConnection.current.setRemoteDescription(
+      new RTCSessionDescription(remoteRTCMessage.current)
+    );
+    const sessionDescription = await peerConnection.current.createAnswer();
+    await peerConnection.current.setLocalDescription(sessionDescription);
+    answerCall({
+      callerId: otherUserId.current,
+      rtcMessage: sessionDescription,
+    });
+  };
+
+  const answerCall = data => {
+    socket.current.emit('answerCall', data);
+  };
+
+  const sendCall = data => {
+    socket.current.emit('call', data);
+  };
+
+
+  // useEffect(()=>{
+  //   setTimeout(()=>{
+  //     setType('WEBRTC_ROOM');
+  //     processAccept();
+  //   },2000)
+    
+  //  },[rtcMessage])
+
+
+  const JoinScreen = () => (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{
+        flex: 1,
+        backgroundColor: '#050A0E',
+        justifyContent: 'center',
+        paddingHorizontal: 42,
+      }}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <>
+          <View
+            style={{
+              padding: 35,
+              backgroundColor: '#1A1C22',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: 14,
+            }}>
+            <Text
+              style={{
+                fontSize: 18,
+                color: '#D0D4DD',
+              }}>
+              Your Caller ID
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                marginTop: 12,
+                alignItems: 'center',
+              }}>
+              <Text
+                style={{
+                  fontSize: 32,
+                  color: '#ffff',
+                  letterSpacing: 6,
+                }}>
+                {localUserId}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: '#1A1C22',
+              padding: 40,
+              marginTop: 25,
+              justifyContent: 'center',
+              borderRadius: 14,
+            }}>
+            <Text
+              style={{
+                fontSize: 18,
+                color: '#D0D4DD',
+              }}>
+              Enter call id of another user
+            </Text>
+            <TextInputContainer
+              placeholder={'Enter Caller ID'}
+              value={otherUserId.current}
+              setValue={text => {
+                otherUserId.current = text;
+                console.log('TEST', otherUserId.current);
+              }}
+              keyboardType={'number-pad'}
+            />
+            <TouchableOpacity
+              onPress={() => {
+                setType('OUTGOING_CALL');
+                processCall();
+              }}
+              style={{
+                height: 50,
+                backgroundColor: '#5568FE',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 12,
+                marginTop: 16,
+              }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: '#FFFFFF',
+                }}>
+                Call Now
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  );
+
+  const OutgoingCallScreen = () => (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#050A0E',
+      }}>
+      <View
+        style={{
+          marginTop: 100,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <Text
+          style={{
+            fontSize: 22,
+            color: '#ffff',
+          }}>
+          Calling
+        </Text>
+        <Text
+          style={{
+            fontSize: 28,
+            color: '#5568FE',
+            fontWeight: 'bold',
+            marginTop: 12,
+          }}>
+          {otherUserId.current}
+        </Text>
       </View>
+      <IconContainer
+            backgroundColor={'#FF5D5D'}
+            onPress={() => {
+              setType('JOIN');
+            }}
+            Icon={() => {
+              return <MaterialIcons name="call-end" color={'#fff'}  size={responsiveFontSize(2.8)} />;
+            }}
+          />
       
     </View>
-    // <SkeletonPlaceholder >
-    //    <SkeletonPlaceholder.Item width={ responsiveWidth(92)} height={100} alignSelf='center' borderRadius={10} marginTop={30} />
-    //    <SkeletonPlaceholder.Item width={ responsiveWidth(92)} height={50} alignSelf='center' marginTop={15} borderRadius={10} />
-    //    <SkeletonPlaceholder.Item width={ responsiveWidth(92)} height={50} alignSelf='center' marginTop={15} borderRadius={10} />
-    //    <SkeletonPlaceholder.Item width={ responsiveWidth(92)} height={50} alignSelf='center' marginTop={15} borderRadius={10} />
-    //    <SkeletonPlaceholder.Item width={ responsiveWidth(92)} height={50} alignSelf='center' marginTop={15} borderRadius={10} />
+  );
 
+  const IncomingCallScreen = () => (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#050A0E',
+      }}>
+      <View
+        style={{
+          marginTop: 100,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <Text
+          style={{
+            fontSize: 22,
+            color: '#ffff',
+          }}>
+          Incoming call from
+        </Text>
+        <Text
+          style={{
+            fontSize: 28,
+            color: '#5568FE',
+            fontWeight: 'bold',
+            marginTop: 12,
+          }}>
+          {otherUserId.current}
+        </Text>
+      </View>
 
-    // </SkeletonPlaceholder>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          width: '60%',
+          alignSelf: 'center',
+          position: 'absolute',
+          bottom: 50,
+        }}>
+           <IconContainer
+            backgroundColor={'#FF5D5D'}
+            onPress={() => {
+              setType('JOIN');
+            }}
+            Icon={() => {
+              return <MaterialIcons name="call-end" color={'#fff'}  size={responsiveFontSize(2.8)} />;
+            }}
+          />
+        
+        <IconContainer
+            backgroundColor={'#4AC76D'}
+            onPress={() => {
+              setType('WEBRTC_ROOM');
+              processAccept();
+            }}
+            Icon={() => {
+              return <Feather name="check" color={'#fff'}  size={responsiveFontSize(2.8)} />;
+            }}
+          />
+        
+      </View>
+    </View>
+  );
 
+  const WebrtcRoomScreen = () => (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#050A0E',
+        
+      }}>
+        
+      <View
+        style={{
+          flex:1,
+          backgroundColor: '#D0D4DD',
+          
+        }}>
+          {localStream && (
+          <RTCView
+            streamURL={localStream.toURL()}
+            style={{ width: '48%', height: '32%', position:'absolute',top:20,right:5,zIndex:1}}
+          />
+        )}
+        {remoteStream ? (
+          <RTCView
+            streamURL={remoteStream.toURL()}
+            style={{ width: '100%', height: '90%' ,}}
+          />
+        ) : (
+          <Text>No remote stream available</Text>
+        )}
+        
+      </View>
 
+      <View
+        style={{
+          flexDirection: 'row',
+          position:'absolute',bottom:0,alignSelf:'center',width:'100%',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          marginTop: 15,backgroundColor:'#000',padding:15
+        }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: localWebcamOn ? '#4AC76D' : 'red',
+            padding: 12,
+            borderRadius: 30,
+          }}
+          onPress={() => {
+            localStream.getVideoTracks().forEach(track => {
+              track.enabled = !track.enabled;
+              setLocalWebcamOn(track.enabled);
+            });
+          }}>
+          <Ionicons name="videocam" size={30} color={'#D0D4DD'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: localMicOn ? '#4AC76D' : 'red',
+            padding: 12,
+            borderRadius: 30,
+          }}
+          onPress={() => {
+            localStream.getAudioTracks().forEach(track => {
+              track.enabled = !track.enabled;
+              setLocalMicOn(track.enabled);
+            });
+          }}>
+          <Ionicons name="mic" size={30} color={'#D0D4DD'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#FF5D5D',
+            padding: 12,
+            borderRadius: 30,
+          }}
+          onPress={() => {
+            setType('JOIN');
+          }}>
+          <MaterialIcons name="call-end" size={30} color={'#D0D4DD'} />
+        </TouchableOpacity>
+      </View>
+
+      
+        
+      
+    </View>
+  );
+
+  return (
+    <View
+      style={{
+        flex: 1,
+      }}>
+      {type === 'JOIN' && <JoinScreen />}
+      {type === 'OUTGOING_CALL' && <OutgoingCallScreen />}
+      {type === 'INCOMING_CALL' && <IncomingCallScreen />}
+      {type === 'WEBRTC_ROOM' && <WebrtcRoomScreen />}
+    </View>
   );
 };
-
 
 export default VideoCall;

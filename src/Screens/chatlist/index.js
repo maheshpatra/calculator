@@ -1,108 +1,193 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  Text, View, TextInput, ScrollView, Image, Pressable, TouchableOpacity, TouchableWithoutFeedback, TouchableHighlight, SafeAreaView, Linking, FlatList, Alert, Platform, ActivityIndicator
+  View, Text, ScrollView, Image, Pressable, TouchableOpacity, Alert, StyleSheet
 } from "react-native";
-import Styles from './style';
-import { Colors } from '../../Constants/Colors'
-import { Calibri } from '../../Constants/Fonts';
-import { Images } from '../../Constants/ImageIconContant';
+import { RTCPeerConnection, RTCView, mediaDevices } from 'react-native-webrtc';
+import { w3cwebsocket as W3CWebSocket } from 'websocket';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
-
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Picker } from '@react-native-picker/picker';
-import { responsiveHeight, responsiveWidth, responsiveFontSize } from "react-native-responsive-dimensions";
-import SkeletonPlaceholder from 'react-native-skeleton-placeholder';
-import { Icon } from 'react-native-basic-elements';
-import Swiper from "react-native-swiper";
-import { ImageSlider } from "react-native-image-slider-banner";
 import { SwipeListView } from 'react-native-swipe-list-view';
 import Header from '../../Component/Header';
-import LinearGradient from 'react-native-linear-gradient';
-// create a component
-const ChatList = ({ props, route, navigation }) => {
+import { responsiveFontSize, responsiveWidth } from "react-native-responsive-dimensions";
+import Styles from './style';
+import { Colors } from '../../Constants/Colors';
+import notifee,{AndroidImportance} from '@notifee/react-native';
+const ChatList = ({ route, navigation }) => {
+  const [listViewData, setListViewData] = useState(null);
+  const user = route?.params?.user;
 
-  const [selectedClass, setSelectedClass] = useState();
-  const [selectedSchool, setSelectedSchool] = useState();
-  const [select, setSelected] = useState();
-  const listViewData = [
-    {
-      name: 'Anil Jana',
-      profile: 'https://picsum.photos/id/456/200/200'
-    },
-    {
-      name: 'Ajit Maity',
-      profile: 'https://picsum.photos/id/400/200/200'
-    },
-    {
-      name: 'Suan Sing',
-      profile: 'https://picsum.photos/id/345/200/200'
+  useEffect(() => {
+    fetchUsersList();
+    console.log(user)
+  }, []);
+
+  const fetchUsersList = async () => {
+    try {
+      let res = await fetch('https://calculator.acuitysoftware.co/Calculator/get_users.php', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify({ user_id: user?.id })
+      });
+      let resultData = await res.json();
+      if (resultData.error === false) {
+        setListViewData(resultData.data);
+      }
+    } catch (err) {
+      console.log(err);
     }
-  ]
-  const styles = Styles();
+  };
+
+  const startAudioCall = (recipientId) => {
+    navigation.navigate('CallScreen', { userId: recipientId, isVideo: false, localUserId: user.id });
+  };
+
+  const startVideoCall = (recipientId,userfname,fcmtoken) => {
+    navigation.navigate('VideoCall', { 
+      userId: recipientId, 
+      isVideo: true, 
+      localUserId: user.id,
+      type:'OUTGOING_CALL' });
+    // console.log(user)
+  };
+
+  async function onDisplayNotification() {
+    // Request permissions (required for iOS)
+    await notifee.requestPermission()
+
+    // Create a channel (required for Android)
+    const channelId = await notifee.createChannel({
+      id: 'default2',
+      name: 'Default Channel 2',
+      importance:AndroidImportance.HIGH
+    });
+
+    // Display a notification
+    await notifee.displayNotification({
+      title: '<p style="color: #4caf50;"><b>Incomming Call</span></p></b></p> ',
+      subtitle: '&#129395;',
+      body:
+        'Incomming Video Call from mahesh',
+      android: {
+        channelId,
+        color: '#4caf50',
+        actions: [
+          {
+            title: '<p style="color: #f44336;"><b>Reject...</b></p>',
+            pressAction: { id: 'reject' },
+          },
+          {
+            title: '<b>Accept</b>',
+            pressAction: { id: 'accept' },
+          }
+          
+        ],
+      },
+    });
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Header />
+      <Header
+        user={user}
+        handelLogout={route?.params?.handelLogout}
+        handelSearchData={(query) => handelSearchData(query)}
+      />
       <ScrollView>
-
-
-
-
         <SwipeListView
           data={listViewData}
-          renderItem={(data, rowMap) => (
-            <Pressable onPress={()=>navigation.navigate('ChatDetails')} style={{ backgroundColor: '#fff', width: '108%', alignSelf: 'center', padding: 12, borderBottomRightRadius: 20, borderTopRightRadius: 20, flexDirection: 'row', alignItems: 'center', borderBottomWidth: .8, borderColor: '#ddd' }}>
+          renderItem={(data) => (
+            <Pressable onPress={() => navigation.navigate('ChatDetails', {user:data.item, userId:user?.id, recipientId: data.item.id, UserName: user.first_name})} style={styles.listItem}>
               <Image
                 source={{ uri: data.item.profile }}
-                style={{ height: responsiveFontSize(5.5), width: responsiveFontSize(5.5), marginLeft: responsiveFontSize(3), borderRadius: responsiveFontSize(3), }}
+                style={styles.profileImage}
               />
-              <View style={{ marginLeft: responsiveWidth(2.5), width: '68%' }}>
-
-                <Text style={{fontWeight:'bold',color:'#555',fontSize:responsiveFontSize(2)}}>{data.item.name}</Text>
-                <Text style={{}}><MaterialCommunityIcons size={responsiveFontSize(2.2)} name='check-all' color={'#2FBFFF'} />{" Hii , 7:05 PM"}</Text>
-
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{data.item.first_name} {data.item.last_name}</Text>
+                <Text style={styles.userMessage}><MaterialCommunityIcons size={responsiveFontSize(2.2)} name='check-all' color={'#2FBFFF'} />{" Hii , 7:05 PM"}</Text>
               </View>
-              <Text style={{ padding: 3, paddingHorizontal: 8, borderRadius: 18, backgroundColor: Colors.primary, color: '#fff', fontWeight: 'bold', fontSize: responsiveFontSize(1.9) }}>1</Text>
-
+              <Text style={styles.messageCount}>1</Text>
             </Pressable>
           )}
-          renderHiddenItem={(data, rowMap) => (
-
-            <LinearGradient  start={{x: 0, y: 1}} colors={['#8C228A', '#DF0D89']} style={{ height:'100%', width: '35%', alignItems: 'center', alignSelf: 'flex-end' ,flexDirection:'row'}}>
-              <TouchableOpacity onPress={() => navigation.navigate('ChatDetails')} style={{  width: '32%', alignItems: 'center',  }}>
-                <Ionicons color={'#fff'} name='chatbubble-ellipses-outline' size={responsiveFontSize(2.8)} style={{  borderRadius: 25,marginLeft:responsiveWidth(4) }} />
+          renderHiddenItem={(data) => (
+            <LinearGradient start={{ x: 0, y: 1 }} colors={['#8C228A', '#DF0D89']} style={styles.hiddenButtonsContainer}>
+              <TouchableOpacity onPress={() => navigation.navigate('ChatDetails', {user:data.item, userId:user?.id, recipientId: data.item.id, UserName: user.first_name})} style={styles.hiddenButton}>
+                <Ionicons color={'#fff'} name='chatbubble-ellipses-outline' size={responsiveFontSize(2.8)} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('AudioCall')} style={{  width: '30%', alignItems: 'center',  }}>
-                <Feather color={'#fff'} name='phone-call' size={responsiveFontSize(2.6)} style={{  borderRadius: 25,marginLeft:10 }} />
-              </TouchableOpacity> 
-              <TouchableOpacity onPress={() => navigation.navigate('VideoCall')} style={{  width: '30%', alignItems: 'center',  }}>
-                <Feather color={'#fff'} name='video' size={responsiveFontSize(2.8)} style={{  borderRadius: 25,marginLeft:10 }} />
+              <TouchableOpacity onPress={() => startAudioCall(data.item.id)} style={styles.hiddenButton}>
+                <Feather color={'#fff'} name='phone-call' size={responsiveFontSize(2.6)} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => startVideoCall(data.item.id,user.first_name,data.item.remember_token)} style={styles.hiddenButton}>
+                <Feather color={'#fff'} name='video' size={responsiveFontSize(2.8)} />
               </TouchableOpacity>
             </LinearGradient>
           )}
           rightOpenValue={-responsiveWidth(35)}
         />
-
       </ScrollView>
     </View>
-
-    // <SkeletonPlaceholder >
-    //   <SkeletonPlaceholder.Item width={responsiveWidth(92)} height={160} alignSelf='center' borderRadius={10} />
-    //   <SkeletonPlaceholder.Item width={responsiveWidth(92)} height={40} alignSelf='center' marginTop={20} borderRadius={10} />
-    //   <SkeletonPlaceholder.Item width={responsiveWidth(92)} height={40} alignSelf='center' marginTop={20} borderRadius={10} />
-    //   <SkeletonPlaceholder.Item width={responsiveWidth(92)} height={40} alignSelf='center' marginTop={20} borderRadius={10} />
-    //   <SkeletonPlaceholder.Item width={responsiveWidth(92)} height={40} alignSelf='center' marginTop={20} borderRadius={10} />
-
-
-
-
-    // </SkeletonPlaceholder>
-
-
   );
 };
 
+const styles = StyleSheet.create({
+  rtcView: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  listItem: {
+    backgroundColor: '#fff',
+    width: '108%',
+    alignSelf: 'center',
+    padding: 12,
+    borderBottomRightRadius: 20,
+    borderTopRightRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 0.8,
+    borderColor: '#ddd',
+  },
+  profileImage: {
+    height: responsiveFontSize(5.5),
+    width: responsiveFontSize(5.5),
+    marginLeft: responsiveFontSize(3),
+    borderRadius: responsiveFontSize(3),
+  },
+  userInfo: {
+    marginLeft: responsiveWidth(2.5),
+    width: '68%',
+  },
+  userName: {
+    fontWeight: 'bold',
+    color: '#555',
+    fontSize: responsiveFontSize(2),
+  },
+  userMessage: {},
+  messageCount: {
+    padding: 3,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: responsiveFontSize(1.9),
+  },
+  hiddenButtonsContainer: {
+    height: '100%',
+    width: '35%',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+  },
+  hiddenButton: {
+    width: '33%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default ChatList;

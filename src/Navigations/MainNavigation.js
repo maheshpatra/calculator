@@ -14,10 +14,11 @@ import {
   ChatList,
   ChatDetails,
   VideoCall,
-  AudioCall
+  AudioCall,
+  CallScreen
 } from "../Screens";
 import { StatusBar } from "react-native";
-
+import IncomingCallModal from '../Component/IncomingCallModal';
 const Stack = createNativeStackNavigator();
 
 const MainNavigation = (props) => {
@@ -40,25 +41,10 @@ const MainNavigation = (props) => {
     },
   };
 
-  const verticalAnimation = {
-    gestureDirection: "vertical",
-    cardStyleInterpolator: ({ current, layouts }) => {
-      return {
-        cardStyle: {
-          transform: [
-            {
-              translateY: current.progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [layouts.screen.height, 0],
-              }),
-            },
-          ],
-        },
-      };
-    },
-  };
+  
 
   return (
+    <>
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
@@ -91,6 +77,11 @@ const MainNavigation = (props) => {
         component={ChatList}
         options={horizontalAnimation}
       />
+	  <Stack.Screen
+        name="CallScreen"
+        component={CallScreen}
+        options={horizontalAnimation}
+      />
       <Stack.Screen
         name="VideoCall"
         component={VideoCall}
@@ -103,6 +94,8 @@ const MainNavigation = (props) => {
     />
      
     </Stack.Navigator>
+    <IncomingCallModal />
+    </>
   );
 };
 

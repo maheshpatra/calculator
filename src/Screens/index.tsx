@@ -4,5 +4,6 @@ export { default as VideoCall } from "./videocall"
 export { default as AudioCall } from "./audiocall"
 export { default as ChatList } from "./chatlist"
 export { default as ChatDetails } from "./chatdetails"
+export { default as CallScreen } from "./CallScreen"
 
 

@@ -1,22 +1,50 @@
 //import liraries
 import React, { useEffect,useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import Styles from './style';
 import { Colors } from '../../Constants/Colors';
 import { Images } from '../../Constants/ImageIconContant';
-
+import messaging from '@react-native-firebase/messaging' ;
 import Entypo from 'react-native-vector-icons/Entypo';
 import { responsiveFontSize, responsiveScreenWidth } from 'react-native-responsive-dimensions';
+import IncomingCallModal from '../../Component/IncomingCallModal';
 
 // create a component
 const Initial = ({navigation}) => {
 	const [input, setInput] = useState('');
 	const [result, setResult] = useState('');
+	const [nextParenthesis, setNextParenthesis] = useState('('); // Track the next parenthesis
+      
+     const getDeviceTocket = async ()=>{
+       let tocken = await messaging().getToken();
+	  console.log(tocken);
+	} 
+
+	useEffect(()=>{
+      getDeviceTocket();
+	},[])
+
+
+	useEffect(() => {
+		const unsubscribe = messaging().onMessage(async remoteMessage => {
+			// return (<IncomingCallModal />)
+		  Alert.alert('A new FCM message arrived!', JSON.stringify(remoteMessage));
+		});
+	 
+		return unsubscribe;
+	   }, []);
 
 	const handlePress = (value) => {
+
+
+
 		if (value === '=') {
 		  try {
-			setResult(eval(input).toString());
+			const expression = input.replace(/%/g, '/100*');
+        	const res = eval(expression);
+        	setResult(res.toString());
+			  
+			//setResult(eval(input).toString());
 		  } catch (e) {
 			setResult('Error');
 		  }
@@ -25,12 +53,9 @@ const Initial = ({navigation}) => {
 		  setResult('');
 		} else if (value === '⌫') {
 		  setInput(input.slice(0, -1));
-		} else if (value === '%') {
-		  try {
-			setResult((parseFloat(input) / 100).toString());
-		  } catch (e) {
-			setResult('Error');
-		  }
+		}else if (value === '()') {
+		  setInput(input + nextParenthesis);
+		  setNextParenthesis(nextParenthesis === '(' ? ')' : '('); // Toggle parenthesis
 		} else {
 		  setInput(input + value);
 		}
@@ -45,7 +70,7 @@ const Initial = ({navigation}) => {
 			value:'⌫',
 			bg:'#D9E0F9'
 		},{
-			value:'+/-',
+			value:'()',
 			bg:'#D9E0F9'
 		},{
 			value:'/',
@@ -121,8 +146,8 @@ const Initial = ({navigation}) => {
 			<Text style={styles.resultText}>{result}</Text>
 		  </View>
 		  <View style={styles.numpadContainer}>
-			{data.map((item) => (
-			  <TouchableOpacity key={item} style={[styles.button,{ backgroundColor: item.bg}]} onPress={() => handlePress(item.value)}>
+			{data.map((item, rowIndex) => (
+			  <TouchableOpacity key={rowIndex} style={[styles.button,{ backgroundColor: item.bg}]} onPress={() => handlePress(item.value)}>
 				<Text style={styles.buttonText}>{item.value}</Text>
 			  </TouchableOpacity>
 			))}
