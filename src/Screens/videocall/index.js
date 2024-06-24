@@ -7,6 +7,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import TextInputContainer from '../../Component/TextInputContainer';
 import SocketIOClient from 'socket.io-client';
@@ -26,19 +27,21 @@ import InCallManager from 'react-native-incall-manager';
 import { responsiveFontSize } from 'react-native-responsive-dimensions';
 import { useCall } from '../../context/callcontext';
 const VideoCall = ({ route, navigation }) => {
-  const { userId, isVideo, localUserId, f_name,fcm_token,rtcMessage,typem } = route.params;
+  const { userId, isVideo, localUserId, f_name, fcm_token, rtcMessage, typec } = route.params;
   const [localStream, setLocalStream] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [remoteStream, setRemoteStream] = useState(null);
   const [type, setType] = useState('JOIN');
   const [localMicOn, setLocalMicOn] = useState(true);
   const [localWebcamOn, setLocalWebcamOn] = useState(true);
- console.log(route.params)
-  const otherUserId = useRef(userId);
+  const [processcall, setprocesscall] = useState(null);
+  console.log(route.params)
+  const otherUserId = useRef(null);
   const socket = useRef(null);
   const peerConnection = useRef(null);
   const remoteRTCMessage = useRef(null);
   const { setIncomingCall } = useCall();
-  
+
 
   const ICE_SERVERS = {
     iceServers: [
@@ -52,39 +55,13 @@ const VideoCall = ({ route, navigation }) => {
       { urls: 'stun:stun.iptel.org' },
     ],
   };
-  
-
-  useEffect(()=>{
-  if(typem=='OUTGOING_CALL'){
-    setType('OUTGOING_CALL');
-    processCall();
-  }
-  },[type])
-   
 
 
-  useEffect(() => {
-    socket.current = SocketIOClient('http://192.168.31.57:4000', {
-        query: {
-            callerId: localUserId,
-        },
-    });
 
-    socket.current.on('newCall', data => {
-        remoteRTCMessage.current = data.rtcMessage;
-        otherUserId.current = data.callerId;
-        setIncomingCall({
-            callerId: data.callerId,
-            rtcMessage: data.rtcMessage,
-        });
-    });
 
-    // Other socket event handlers
 
-    return () => {
-        socket.current.disconnect();
-    };
-}, [localUserId]);
+
+
   useEffect(() => {
     socket.current = SocketIOClient('http://192.168.31.57:4000', {
       query: {
@@ -106,6 +83,8 @@ const VideoCall = ({ route, navigation }) => {
       );
       setType('WEBRTC_ROOM');
     });
+
+
 
     socket.current.on('ICEcandidate', data => {
       const candidate = new RTCIceCandidate(data.rtcMessage);
@@ -155,8 +134,8 @@ const VideoCall = ({ route, navigation }) => {
             audio: true,
             video: {
               mandatory: {
-                minWidth: 1280,
-                minHeight: 720,
+                minWidth: 800,
+                minHeight: 480,
                 minFrameRate: 30,
               },
               facingMode: isFront ? 'user' : 'environment',
@@ -227,13 +206,40 @@ const VideoCall = ({ route, navigation }) => {
   };
 
 
-  // useEffect(()=>{
-  //   setTimeout(()=>{
-  //     setType('WEBRTC_ROOM');
-  //     processAccept();
-  //   },2000)
-    
-  //  },[rtcMessage])
+  useEffect(() => {
+    if (typec === "INCOMING_CALL")
+
+      remoteRTCMessage.current = rtcMessage
+    otherUserId.current = userId
+    setType('WEBRTC_ROOM');
+    processAccept();
+
+  }, [rtcMessage])
+
+  useEffect(() => {
+    const initiateCall = async () => {
+      if (typec === 'OUTGOING_CALL') {
+        otherUserId.current = userId;
+        setType('OUTGOING_CALL');
+        try {
+          const sessionDescription = await peerConnection.current.createOffer();
+          await peerConnection.current.setLocalDescription(sessionDescription);
+          setTimeout(() => {
+            sendCall({
+              calleeId: userId,
+              rtcMessage: sessionDescription,
+            });
+          }, 2000);
+        } catch (error) {
+          console.error('Error creating offer or setting local description:', error);
+        }
+      }
+    };
+  
+    initiateCall();
+  }, [typec, userId]);
+
+
 
 
   const JoinScreen = () => (
@@ -294,7 +300,7 @@ const VideoCall = ({ route, navigation }) => {
               }}>
               Enter call id of another user
             </Text>
-            <TextInputContainer
+            {/* <TextInputContainer
               placeholder={'Enter Caller ID'}
               value={otherUserId.current}
               setValue={text => {
@@ -302,7 +308,26 @@ const VideoCall = ({ route, navigation }) => {
                 console.log('TEST', otherUserId.current);
               }}
               keyboardType={'number-pad'}
-            />
+            /> */}
+            <TextInput
+        style={{
+          margin: 8,
+          padding: 8,
+          width: '90%',
+          textAlign: 'center',
+          fontSize: 16,
+          color: '#FFFFFF',
+        }}
+        multiline={true}
+        numberOfLines={1}
+        cursorColor={'#5568FE'}
+        placeholder={'id'}
+        placeholderTextColor={'#9A9FA5'}
+        onChangeText={(text) => 
+          otherUserId.current = text}
+        value={otherUserId.current}
+        keyboardType={'number-pad'}
+      />
             <TouchableOpacity
               onPress={() => {
                 setType('OUTGOING_CALL');
@@ -347,7 +372,7 @@ const VideoCall = ({ route, navigation }) => {
             fontSize: 22,
             color: '#ffff',
           }}>
-          Calling
+          {loading ? "Connecting Please Wait.." : "Calling"}
         </Text>
         <Text
           style={{
@@ -360,15 +385,15 @@ const VideoCall = ({ route, navigation }) => {
         </Text>
       </View>
       <IconContainer
-            backgroundColor={'#FF5D5D'}
-            onPress={() => {
-              setType('JOIN');
-            }}
-            Icon={() => {
-              return <MaterialIcons name="call-end" color={'#fff'}  size={responsiveFontSize(2.8)} />;
-            }}
-          />
-      
+        backgroundColor={'#FF5D5D'}
+        onPress={() => {
+          setType('JOIN');
+        }}
+        Icon={() => {
+          return <MaterialIcons name="call-end" color={'#fff'} size={responsiveFontSize(2.8)} />;
+        }}
+      />
+
     </View>
   );
 
@@ -412,27 +437,27 @@ const VideoCall = ({ route, navigation }) => {
           position: 'absolute',
           bottom: 50,
         }}>
-           <IconContainer
-            backgroundColor={'#FF5D5D'}
-            onPress={() => {
-              setType('JOIN');
-            }}
-            Icon={() => {
-              return <MaterialIcons name="call-end" color={'#fff'}  size={responsiveFontSize(2.8)} />;
-            }}
-          />
-        
         <IconContainer
-            backgroundColor={'#4AC76D'}
-            onPress={() => {
-              setType('WEBRTC_ROOM');
-              processAccept();
-            }}
-            Icon={() => {
-              return <Feather name="check" color={'#fff'}  size={responsiveFontSize(2.8)} />;
-            }}
-          />
-        
+          backgroundColor={'#FF5D5D'}
+          onPress={() => {
+            setType('JOIN');
+          }}
+          Icon={() => {
+            return <MaterialIcons name="call-end" color={'#fff'} size={responsiveFontSize(2.8)} />;
+          }}
+        />
+
+        <IconContainer
+          backgroundColor={'#4AC76D'}
+          onPress={() => {
+            setType('WEBRTC_ROOM');
+            processAccept();
+          }}
+          Icon={() => {
+            return <Feather name="check" color={'#fff'} size={responsiveFontSize(2.8)} />;
+          }}
+        />
+
       </View>
     </View>
   );
@@ -442,39 +467,39 @@ const VideoCall = ({ route, navigation }) => {
       style={{
         flex: 1,
         backgroundColor: '#050A0E',
-        
+
       }}>
-        
+
       <View
         style={{
-          flex:1,
+          flex: 1,
           backgroundColor: '#D0D4DD',
-          
+
         }}>
-          {localStream && (
+        {localStream && (
           <RTCView
             streamURL={localStream.toURL()}
-            style={{ width: '48%', height: '32%', position:'absolute',top:20,right:5,zIndex:1}}
+            style={{ width: '48%', height: '32%', position: 'absolute', top: 20, right: 5, zIndex: 1 }}
           />
         )}
         {remoteStream ? (
           <RTCView
             streamURL={remoteStream.toURL()}
-            style={{ width: '100%', height: '90%' ,}}
+            style={{ width: '100%', height: '90%', }}
           />
         ) : (
           <Text>No remote stream available</Text>
         )}
-        
+
       </View>
 
       <View
         style={{
           flexDirection: 'row',
-          position:'absolute',bottom:0,alignSelf:'center',width:'100%',
+          position: 'absolute', bottom: 0, alignSelf: 'center', width: '100%',
           alignItems: 'center',
           justifyContent: 'space-around',
-          marginTop: 15,backgroundColor:'#000',padding:15
+          marginTop: 15, backgroundColor: '#000', padding: 15
         }}>
         <TouchableOpacity
           style={{
@@ -519,9 +544,9 @@ const VideoCall = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      
-        
-      
+
+
+
     </View>
   );
 

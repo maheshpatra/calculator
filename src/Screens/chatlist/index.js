@@ -36,6 +36,7 @@ const ChatList = ({ route, navigation }) => {
       let resultData = await res.json();
       if (resultData.error === false) {
         setListViewData(resultData.data);
+        console.log(resultData.data)
       }
     } catch (err) {
       console.log(err);
@@ -51,7 +52,9 @@ const ChatList = ({ route, navigation }) => {
       userId: recipientId, 
       isVideo: true, 
       localUserId: user.id,
-      type:'OUTGOING_CALL' });
+      typec:'OUTGOING_CALL',
+      f_name:userfname
+    });
     // console.log(user)
   };
 
@@ -94,8 +97,8 @@ const ChatList = ({ route, navigation }) => {
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <Header
         user={user}
-        handelLogout={route?.params?.handelLogout}
-        handelSearchData={(query) => handelSearchData(query)}
+        // handelLogout={route?.params?.handelLogout}
+        handelSearchData={(query) => {}}
       />
       <ScrollView>
         <SwipeListView
@@ -121,7 +124,7 @@ const ChatList = ({ route, navigation }) => {
               <TouchableOpacity onPress={() => startAudioCall(data.item.id)} style={styles.hiddenButton}>
                 <Feather color={'#fff'} name='phone-call' size={responsiveFontSize(2.6)} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => startVideoCall(data.item.id,user.first_name,data.item.remember_token)} style={styles.hiddenButton}>
+              <TouchableOpacity onPress={() => startVideoCall(data.item.id,data.item.first_name,data.item.remember_token)} style={styles.hiddenButton}>
                 <Feather color={'#fff'} name='video' size={responsiveFontSize(2.8)} />
               </TouchableOpacity>
             </LinearGradient>

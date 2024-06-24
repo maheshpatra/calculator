@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
+import Wrapper from '../Component/Wrapper';
 
 const CallContext = createContext();
 
@@ -11,7 +12,9 @@ export const CallProvider = ({ children }) => {
 
     return (
         <CallContext.Provider value={{ incomingCall, setIncomingCall }}>
+            <Wrapper>
             {children}
+            </Wrapper>
         </CallContext.Provider>
     );
 };

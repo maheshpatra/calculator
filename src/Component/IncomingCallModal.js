@@ -39,6 +39,7 @@ const IncomingCallModal = () => {
           rtcMessage: incomingCall.rtcMessage,
           isVideo: true,
           localUserId: user.id,
+          typec:'INCOMING_CALL'
       });
   };
 
@@ -69,7 +70,7 @@ const IncomingCallModal = () => {
             fontSize: 22,
             color: '#ffff',
           }}>
-          Incoming call from
+         You Have an Incoming call from 
         </Text>
         <Text
           style={{

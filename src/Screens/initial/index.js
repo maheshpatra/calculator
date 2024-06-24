@@ -8,31 +8,52 @@ import messaging from '@react-native-firebase/messaging' ;
 import Entypo from 'react-native-vector-icons/Entypo';
 import { responsiveFontSize, responsiveScreenWidth } from 'react-native-responsive-dimensions';
 import IncomingCallModal from '../../Component/IncomingCallModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // create a component
 const Initial = ({navigation}) => {
 	const [input, setInput] = useState('');
 	const [result, setResult] = useState('');
 	const [nextParenthesis, setNextParenthesis] = useState('('); // Track the next parenthesis
-      
+	const [user,setuser]=useState(null)
+	
+    
+   
+   
+	const getData = async () => {
+          try {
+               const value = await AsyncStorage.getItem('USER_DATA');
+               if (value !== null) {
+                    setuser(JSON.parse(value))
+                    console.log(value)
+               }
+          } catch (e) {
+
+          }
+     };
+
+     useEffect(() => {
+          getData()
+     }, [])
      const getDeviceTocket = async ()=>{
        let tocken = await messaging().getToken();
-	  console.log(tocken);
+	//   console.log(tocken);
 	} 
 
 	useEffect(()=>{
       getDeviceTocket();
+	 getData()
 	},[])
 
 
-	useEffect(() => {
-		const unsubscribe = messaging().onMessage(async remoteMessage => {
-			// return (<IncomingCallModal />)
-		  Alert.alert('A new FCM message arrived!', JSON.stringify(remoteMessage));
-		});
+	// useEffect(() => {
+	// 	const unsubscribe = messaging().onMessage(async remoteMessage => {
+	// 		// return (<IncomingCallModal />)
+	// 	  Alert.alert('A new FCM message arrived!', JSON.stringify(remoteMessage));
+	// 	});
 	 
-		return unsubscribe;
-	   }, []);
+	// 	return unsubscribe;
+	//    }, []);
 
 	const handlePress = (value) => {
 
@@ -140,7 +161,7 @@ const Initial = ({navigation}) => {
 	
 	  return (
 		<View style={styles.container}>
-			<Entypo onPress={()=>navigation.navigate('Login')} style={{ position:'absolute',top:10,right:20 }} name="dots-three-vertical" color={'#555'} size={responsiveScreenWidth(5)} />
+			<Entypo onPress={()=>user?.id?navigation.navigate('ChatList', {user:user}):navigation.navigate('Login')} style={{ position:'absolute',top:10,right:20 }} name="dots-three-vertical" color={'#555'} size={responsiveScreenWidth(5)} />
 		  <View style={styles.resultContainer}>
 			<Text style={styles.resultText}>{input}</Text>
 			<Text style={styles.resultText}>{result}</Text>
