@@ -205,6 +205,8 @@ const VideoCall = ({ route, navigation }) => {
     socket.current.emit('call', data);
   };
 
+  
+
 
   useEffect(() => {
     if (typec === "INCOMING_CALL")
@@ -239,6 +241,21 @@ const VideoCall = ({ route, navigation }) => {
     initiateCall();
   }, [typec, userId]);
 
+  function leave() {
+    // peerConnection.current.close();
+    // setLocalStream(null);
+    setType("JOIN");
+  }
+  
+
+  // Switch Camera
+  function switchCamera() {
+    localStream.getVideoTracks().forEach((track) => {
+      track._switchCamera();
+    });
+  }
+
+  
 
 
 
@@ -515,6 +532,15 @@ const VideoCall = ({ route, navigation }) => {
           }}>
           <Ionicons name="videocam" size={30} color={'#D0D4DD'} />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: localWebcamOn ? '#4AC76D' : 'red',
+            padding: 12,
+            borderRadius: 30,
+          }}
+          onPress={switchCamera}>
+          <Ionicons name="camera-reverse" size={30} color={'#D0D4DD'} />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={{
@@ -537,9 +563,7 @@ const VideoCall = ({ route, navigation }) => {
             padding: 12,
             borderRadius: 30,
           }}
-          onPress={() => {
-            setType('JOIN');
-          }}>
+          onPress={leave}>
           <MaterialIcons name="call-end" size={30} color={'#D0D4DD'} />
         </TouchableOpacity>
       </View>
