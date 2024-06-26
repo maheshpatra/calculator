@@ -21,7 +21,9 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1.5,
         height: responsiveWidth(15),
         borderColor: '#ccc',
-        
+        marginTop:'2%',
+        width:'90%',alignSelf:'center'
+
       },
       inputIcon: {
         marginRight: 20,

@@ -18,13 +18,12 @@ import {
   CallScreen
 } from "../Screens";
 import { StatusBar } from "react-native";
-import IncomingCallModal from '../Component/IncomingCallModal';
 import { showNotification } from '../utils/notifications';
-import notifee,{ AndroidNotificationSetting } from "@notifee/react-native";
-import { useCall } from "../context/callcontext";
+import notifee, { AndroidNotificationSetting } from "@notifee/react-native";
 import { useNavigation } from "@react-navigation/native";
-import SocketIOClient from 'socket.io-client';
-import messaging from '@react-native-firebase/messaging' ;
+import { ZegoUIKitPrebuiltCallWaitingScreen, ZegoUIKitPrebuiltCallInCallScreen } from '@zegocloud/zego-uikit-prebuilt-call-rn'
+import messaging from '@react-native-firebase/messaging';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const Stack = createNativeStackNavigator();
 
 const MainNavigation = (props) => {
@@ -51,50 +50,49 @@ const MainNavigation = (props) => {
   const otherUserId = useRef(null);
   const socket = useRef(null);
   const remoteRTCMessage = useRef(null);
-  const { setIncomingCall } = useCall(null);
-  const { incomingCall } = useCall(null);
 
 
-  const [user,setuser]=useState(null)
+  const [user, setuser] = useState(null)
   const navigation = useNavigation();
-  useEffect(()=>{
-       getData()
-  },[])
- 
+  useEffect(() => {
+    getData()
+  }, [])
 
-  
+
+
 
 
   const getData = async () => {
-       try {
-         const value = await AsyncStorage.getItem('USER_DATA');
-         if (value !== null) {
-            setuser(JSON.parse(value))
-         }
-       } catch (e) {
-         
-       }
-     };
-    
-     useEffect(() => {
-       messaging().onMessage(async remoteMessage => {
-        console.log(remoteMessage)
-        await showNotification(
-         "Incomming Call",
-        "You Have an Incomming call",
-          // remoteMessage?.data?.imageUrl || remoteMessage?.notification?.imageUrl
-        );
+    try {
+      const value = await AsyncStorage.getItem('USER_DATA');
+      if (value !== null) {
+        setuser(JSON.parse(value))
+        console.log(value)
+      }
+    } catch (e) {
 
-         messaging().setBackgroundMessageHandler(async remoteMessage => {
-          console.log(remoteMessage)
-          notifee.onBackgroundEvent(event =>
-              showNotification(
-              "Incomming Call",
-              "You Have an Incomming call",
-              // remoteMessage?.data?.imageUrl || remoteMessage?.notification?.imageUrl
-            )
+    }
+  };
+
+  useEffect(() => {
+    messaging().onMessage(async remoteMessage => {
+      console.log(remoteMessage)
+      await showNotification(
+        "Incomming Call",
+        "You Have an Incomming call",
+        // remoteMessage?.data?.imageUrl || remoteMessage?.notification?.imageUrl
+      );
+
+      messaging().setBackgroundMessageHandler(async remoteMessage => {
+        console.log(remoteMessage)
+        notifee.onBackgroundEvent(event =>
+          showNotification(
+            "Incomming Call",
+            "You Have an Incomming call",
+            // remoteMessage?.data?.imageUrl || remoteMessage?.notification?.imageUrl
           )
-         })
+        )
+      })
       //   navigation.navigate('VideoCall', {
       //     userId: incomingCall.callerId,
       //     rtcMessage: incomingCall.rtcMessage,
@@ -102,12 +100,12 @@ const MainNavigation = (props) => {
       //     localUserId: user.id,
       //     typec:'INCOMING_CALL'
       // });
-      });
-     
-       }, []);
+    });
+
+  }, []);
 
   useEffect(() => {
-		 notifee.onForegroundEvent(event =>
+    notifee.onForegroundEvent(event =>
       console.log(event)
       //  showNotification(
       //   "Incomming Call",
@@ -116,7 +114,7 @@ const MainNavigation = (props) => {
       // )
     )
 
-     notifee.onBackgroundEvent(event =>
+    notifee.onBackgroundEvent(event =>
       console.log(event)
       //  showNotification(
       //   "Incomming Call",
@@ -124,72 +122,85 @@ const MainNavigation = (props) => {
       //   // remoteMessage?.data?.imageUrl || remoteMessage?.notification?.imageUrl
       // )
     )
-  
-    
-	   }, []);
-     const acceptCall = () => {
-      Alert.alert('Accept Token Arrive')
-    };
-  
-    const rejectCall = () => {
-      Alert.alert('Reject Token Arrive')
-    };
 
-    
-  
+
+  }, []);
+  const acceptCall = () => {
+    Alert.alert('Accept Token Arrive')
+  };
+
+  const rejectCall = () => {
+    Alert.alert('Reject Token Arrive')
+  };
+
+
+
 
   return (
     <>
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        headerStyle: {
-          backgroundColor: '',
-        },
-        headerShadowVisible: false,
-      }}
-    >
-   
-     <Stack.Screen
-        name="Initial"
-        component={Initial}
-        options={horizontalAnimation}
-      /> 
-      <Stack.Screen
-        name="Login"
-        component={Login}
-        options={{headerTitle: 'Login', headerShown: false}}
-      />
-      
-      <Stack.Screen
-        name="ChatDetails"
-        component={ChatDetails}
-        options={horizontalAnimation}
-      />
-     
-      <Stack.Screen
-        name="ChatList"
-        component={ChatList}
-        options={horizontalAnimation}
-      />
-	  <Stack.Screen
-        name="CallScreen"
-        component={CallScreen}
-        options={horizontalAnimation}
-      />
-      <Stack.Screen
-        name="VideoCall"
-        component={VideoCall}
-        options={horizontalAnimation}
-      /> 
-      <Stack.Screen
-      name="AudioCall"
-      component={AudioCall}
-      options={horizontalAnimation}
-    />
-     
-    </Stack.Navigator>
-    <IncomingCallModal />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          headerStyle: {
+            backgroundColor: '',
+          },
+          headerShadowVisible: false,
+        }}
+      >
+
+
+        <Stack.Screen
+          name="Initial"
+          component={Initial}
+          options={horizontalAnimation}
+        />
+        <Stack.Screen
+          name="Login"
+          component={Login}
+          options={{ headerTitle: 'Login', headerShown: false }}
+        />
+
+        <Stack.Screen
+          options={{ headerShown: false }}
+          // DO NOT change the name 
+          name="ZegoUIKitPrebuiltCallWaitingScreen"
+          component={ZegoUIKitPrebuiltCallWaitingScreen}
+        />
+        <Stack.Screen
+          options={{ headerShown: false }}
+          // DO NOT change the name
+          name="ZegoUIKitPrebuiltCallInCallScreen"
+          component={ZegoUIKitPrebuiltCallInCallScreen}
+        />
+
+        <Stack.Screen
+          name="ChatDetails"
+          component={ChatDetails}
+          options={horizontalAnimation}
+        />
+
+        <Stack.Screen
+          name="ChatList"
+          component={ChatList}
+          options={horizontalAnimation}
+        />
+        <Stack.Screen
+          name="CallScreen"
+          component={CallScreen}
+          options={horizontalAnimation}
+        />
+        <Stack.Screen
+          name="VideoCall"
+          component={VideoCall}
+          options={horizontalAnimation}
+        />
+        <Stack.Screen
+          name="AudioCall"
+          component={AudioCall}
+          options={horizontalAnimation}
+        />
+
+      </Stack.Navigator>
     </>
   );
 };

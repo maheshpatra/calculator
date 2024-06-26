@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Image, Text, TouchableOpacity, Alert, NativeModules, TextInput, Pressable } from 'react-native'
+import { View, Image, Text, TouchableOpacity, Alert, NativeModules, TextInput, Pressable, ActivityIndicator } from 'react-native'
 import { Colors } from '../../Constants/Colors'
 import Entypo from 'react-native-vector-icons/Entypo';
 import Fontisto from 'react-native-vector-icons/Fontisto';
@@ -8,40 +8,77 @@ import LinearGradient from 'react-native-linear-gradient';
 import { responsiveFontSize, responsiveScreenWidth } from 'react-native-responsive-dimensions';
 import { Calibri } from '../../Constants/Fonts';
 import Modal from "react-native-modal";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const Header = ({user, menuClicks, title, icon, handelSearchData }) => {
 
     const { StatusBarManager } = NativeModules;
     const navigation = useNavigation();
     const height = StatusBarManager.HEIGHT;
     const [isModalVisible, setModalVisible] = useState(false);
+    const [loading, setIsLoading] = useState(false);
 
     const toggleModal = () => {
         setModalVisible(!isModalVisible);
     };
+
+    console.log(user)
 	
-	const handelRemovedAccount = async () => {
-		console.log(user?.id)
-    try {
-      let res = await fetch('https://calculator.acuitysoftware.co/Calculator/disabled_users.php', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: JSON.stringify({ user_id: user?.id })
-      });
-      let resultData = await res.json();
-		console.log(resultData)
-      if (resultData.error === false) {
-        handelLogoutUser()
-      }
-    } catch (err) {
-      console.log(err);
+    const handelRemovedAccount = async () => {
+      console.log(user?.id)
+     
+        
+          setIsLoading(true);
+          try {
+            let headersList = {
+              "Accept": "*/*",
+              "User-Agent": "Thunder Client (https://www.thunderclient.com)"
+             }
+             
+             let bodyContent = new FormData();
+             bodyContent.append("user_id", user?.id);
+             
+             let response = await fetch("https://calculator.acuitysoftware.co/Calculator/calculator-admin/api/user-delete", { 
+               method: "POST",
+               body: bodyContent
+             });
+             
+             let res = await response.json();
+             
+             console.log(res)
+            if(res.status === true){
+              setIsLoading(false)
+              try {
+                await AsyncStorage.removeItem('USER_DATA')
+                navigation.replace('Login')
+             } catch (error) {
+               console.log(error)
+               // Error saving data
+             }
+              ZegoUIKitPrebuiltCallService.uninit()
+              
+      
+            }else{
+              Alert.alert('Calculator App', res.message);
+                return;
+            }
+          } catch (err) {
+            console.log(err)
+          }
+        
+      
     }
-  };
 	
-	const handelLogoutUser = () => {
-		navigation.navigate('Login');
+	const handelLogoutUser = async () => {
+    try {
+       await AsyncStorage.removeItem('USER_DATA')
+       navigation.replace('Login')
+    } catch (error) {
+      console.log(error)
+      // Error saving data
+    }
+
+    
+    
 	  };
 
     return (
@@ -49,7 +86,7 @@ const Header = ({user, menuClicks, title, icon, handelSearchData }) => {
 
             <Image
 
-                source={{ uri: user?.profile_photo_path ?? 'https://picsum.photos/id/456/200/200' }}
+                source={{ uri: user?.profile_image ?? 'https://calculator.acuitysoftware.co/Calculator/calculator-admin/public/assets/no_image.png' }}
                 style={{ height: responsiveFontSize(5.5), width: responsiveFontSize(5.5), marginLeft: responsiveFontSize(1), borderRadius: responsiveFontSize(3) }}
             />
             <View style={{ width: '80%', alignItems: 'center', flexDirection: 'row' }}>
@@ -60,7 +97,7 @@ const Header = ({user, menuClicks, title, icon, handelSearchData }) => {
 
                 <Entypo onPress={toggleModal} name="dots-three-vertical" color={'#555'} size={responsiveFontSize(3)} style={{ marginLeft: responsiveFontSize(2), padding: responsiveFontSize(.8), }} />
                 <TouchableOpacity onPress={() => {
-                    navigation.navigate('Profile')
+                    // navigation.navigate('Profile')
                 }}>
 
                 </TouchableOpacity>
@@ -70,12 +107,18 @@ const Header = ({user, menuClicks, title, icon, handelSearchData }) => {
 
             <Modal isVisible={isModalVisible}>
                 <Pressable onPress={toggleModal} style={{ flex: 1, justifyContent: 'center' }}>
-                    <View style={{ height: responsiveScreenWidth(20), width: responsiveScreenWidth(38), backgroundColor: '#fff', alignSelf: 'center', position: 'absolute', top: responsiveScreenWidth(10), right: 10, justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 15 }}>
+                    {!loading ? <View style={{ height: responsiveScreenWidth(23), width: responsiveScreenWidth(45), backgroundColor: '#fff', alignSelf: 'center', position: 'absolute', top: responsiveScreenWidth(10), right: 10, justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 15 }}>
+                       <TouchableOpacity onPress={() => handelRemovedAccount()} style={{justifyContent:'center',alignItems:'center'}}>
+                       <Text style={{ padding: 5,color:'#555' }} >Remove Account</Text>
+                       </TouchableOpacity>
+                       <TouchableOpacity onPress={handelLogoutUser} style={{justifyContent:'center',alignItems:'center'}}>
+                        
+                       <Text style={{ padding: 5,color:'#555' }} >Logout</Text>
+                       </TouchableOpacity>
 
-                        <Text style={{ padding: 5 }} onPress={() => handelRemovedAccount()}>Remove Account</Text>
-                        <Text style={{ padding: 5 }} onPress={() => handelLogoutUser()}>Logout</Text>
-
-                    </View>
+                    </View> :
+                    <ActivityIndicator  color={'#555'} size={'large'} />
+                    }
                 </Pressable>
             </Modal>
 

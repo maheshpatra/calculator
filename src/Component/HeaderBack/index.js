@@ -8,7 +8,9 @@ import LinearGradient from 'react-native-linear-gradient'
 import { responsiveFontSize, responsiveScreenFontSize, responsiveScreenWidth } from 'react-native-responsive-dimensions';
 import { useNavigation } from '@react-navigation/native';
 import { Calibri } from '../../Constants/Fonts';
+import ZegoUIKitPrebuiltCallService from '@zegocloud/zego-uikit-prebuilt-call-rn'
 import Modal from "react-native-modal";
+import { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn'
 const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
     const {StatusBarManager} = NativeModules;
 
@@ -22,24 +24,46 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
 	
 	const handelRemovedAccount = async () => {
 		console.log(user?.id)
-    try {
-      let res = await fetch('https://calculator.acuitysoftware.co/Calculator/disabled_users.php', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: JSON.stringify({ user_id: user?.id })
-      });
-      let resultData = await res.json();
-		console.log(resultData)
-      if (resultData.error === false) {
-        handelLogoutUser()
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+   
+      
+        setIsLoading(true);
+        try {
+          let headersList = {
+            "Accept": "*/*",
+            "User-Agent": "Thunder Client (https://www.thunderclient.com)"
+           }
+           
+           let bodyContent = new FormData();
+           bodyContent.append("user_id", user?.id);
+           
+           let response = await fetch("https://calculator.acuitysoftware.co/Calculator/calculator-admin/api/user-delete", { 
+             method: "POST",
+             body: bodyContent
+           });
+           
+           let res = await response.json();
+           
+           console.log(res)
+          if(res.status === true){
+            ZegoUIKitPrebuiltCallService.uninit()
+            try {
+              await AsyncStorage.removeItem('USER_DATA')
+              navigation.replace('Login')
+           } catch (error) {
+             console.log(error)
+             // Error saving data
+           }
+    
+          }else{
+            Alert.alert('Calculator App', res.message);
+              return;
+          }
+        } catch (err) {
+          console.log(err)
+        }
+      
+    
+  }
 	
 	const handelLogoutUser = () => {
 		navigation.navigate('Login');
@@ -53,7 +77,7 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
             </TouchableOpacity>
             <Image
 
-                source={{ uri: 'https://picsum.photos/id/456/200/200' }}
+                source={{ uri:user?.profile_image ?? 'https://calculator.acuitysoftware.co/Calculator/calculator-admin/public/assets/no_image.png' }}
                 style={{ height: responsiveFontSize(5.5), width: responsiveFontSize(5.5), marginLeft: responsiveFontSize(1), borderRadius: responsiveFontSize(3) }}
             />
             <View style={{marginLeft:5}}>
@@ -61,13 +85,24 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
             <Text style={{color:'#000',fontSize:responsiveFontSize(1.5),letterSpacing:.5,}}>Online</Text>
             </View>
             <View style={{width:'34%',flexDirection:'row',position:'absolute',right:5}}>
-            <TouchableOpacity onPress={() => navigation.navigate('VideoCall')} style={{  width: '32%', alignItems: 'center',  }}>
-                <Feather color={'#999'} name='video' size={responsiveFontSize(2.9)} style={{  borderRadius: 25, }} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('AudioCall')} style={{  width: '30%', alignItems: 'center',  }}>
-                <Feather color={'#999'} name='phone-call' size={responsiveFontSize(2.8)} style={{   }} />
-              </TouchableOpacity> 
-              <TouchableOpacity onPress={toggleModal} style={{  width: '30%', alignItems: 'center',  }}>
+            <ZegoSendCallInvitationButton
+                invitees={[{ userID: String(user?.id), userName: user?.first_name }]}
+                isVideoCall={false}
+                resourceID={"calculator_video_call"}
+                backgroundColor={'#fff'}
+                marginLeft={10}
+                // Please fill in the resource ID name that has been configured in the ZEGOCLOUD's console here.
+              />
+
+              <ZegoSendCallInvitationButton
+                invitees={[{ userID: String(user?.id), userName: user?.first_name }]}
+                isVideoCall={true}
+                backgroundColor={'#fff'}
+                marginLeft={10}
+                
+                resourceID={"calculator_video_call"} // Please fill in the resource ID name that has been configured in the ZEGOCLOUD's console here.
+              /> 
+              <TouchableOpacity onPress={toggleModal} style={{  width: '30%', alignItems: 'center',justifyContent:'center' }}>
                 <Entypo color={'#999'} name='dots-three-vertical' size={responsiveFontSize(2.9)} style={{  }} />
               </TouchableOpacity>
               </View>
@@ -75,7 +110,7 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
                 <Pressable onPress={toggleModal} style={{ flex: 1, justifyContent: 'center' }}>
                     <View style={{ height: responsiveScreenWidth(20), width: responsiveScreenWidth(38), backgroundColor: '#fff', alignSelf: 'center', position: 'absolute', top: responsiveScreenWidth(10), right: 10, justifyContent: 'space-around', alignItems: 'center', paddingHorizontal: 15 }}>
 
-                        <Text style={{ padding: 5 }} onPress={() => handelRemovedAccount()}>Remove Account</Text>
+                        <Text style={{ padding: 5 }} onPress={handelRemovedAccount}>Remove Account</Text>
                         <Text style={{ padding: 5 }} onPress={() => handelLogoutUser()}>Logout</Text>
 
                     </View>

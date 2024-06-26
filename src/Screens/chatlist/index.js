@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  View, Text, ScrollView, Image, Pressable, TouchableOpacity, Alert, StyleSheet
+  View, Text, ScrollView, Image, Pressable, TouchableOpacity, Alert, StyleSheet,RefreshControl,
+  ActivityIndicator
 } from "react-native";
 import { RTCPeerConnection, RTCView, mediaDevices } from 'react-native-webrtc';
 import { w3cwebsocket as W3CWebSocket } from 'websocket';
@@ -13,125 +14,112 @@ import Header from '../../Component/Header';
 import { responsiveFontSize, responsiveWidth } from "react-native-responsive-dimensions";
 import Styles from './style';
 import { Colors } from '../../Constants/Colors';
-import notifee,{AndroidImportance} from '@notifee/react-native';
+import notifee, { AndroidImportance } from '@notifee/react-native';
+
+import { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn'
 const ChatList = ({ route, navigation }) => {
   const [listViewData, setListViewData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const user = route?.params?.user;
 
   useEffect(() => {
-    fetchUsersList();
+    fetchUsersList(user?.id);
     console.log(user)
-  }, []);
+  }, [user]);
 
-  const fetchUsersList = async () => {
+  const _onRefresh = () => {
+    console.log('_onRefresh')
+    setLoading(true);
+    fetchUsersList(user?.id);
+};
+
+  const fetchUsersList = async (mid) => {
+     setLoading(true)
     try {
-      let res = await fetch('https://calculator.acuitysoftware.co/Calculator/get_users.php', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: JSON.stringify({ user_id: user?.id })
-      });
-      let resultData = await res.json();
-      if (resultData.error === false) {
-        setListViewData(resultData.data);
-        console.log(resultData.data)
+      let bodyContent = new FormData();
+       bodyContent.append("user_id",mid);
+       
+       let response = await fetch("https://calculator.acuitysoftware.co/Calculator/calculator-admin/api/user-list", { 
+         method: "POST",
+         body: bodyContent
+       });
+       
+       let res = await response.json();
+       console.log(res)
+      if (res.status === true) {
+        setListViewData(res.data);
+        console.log(res.data)
+        setLoading(false)
+      }else{
+        Alert.alert('Error Meassage',res.message )
       }
     } catch (err) {
       console.log(err);
+      setLoading(false)
     }
   };
 
-  const startAudioCall = (recipientId) => {
-    navigation.navigate('CallScreen', { userId: recipientId, isVideo: false, localUserId: user.id });
-  };
-
-  const startVideoCall = (recipientId,userfname,fcmtoken) => {
-    navigation.navigate('VideoCall', { 
-      userId: recipientId, 
-      isVideo: true, 
-      localUserId: user.id,
-      typec:'OUTGOING_CALL',
-      f_name:userfname
-    });
-    // console.log(user)
-  };
-
-  async function onDisplayNotification() {
-    // Request permissions (required for iOS)
-    await notifee.requestPermission()
-
-    // Create a channel (required for Android)
-    const channelId = await notifee.createChannel({
-      id: 'default2',
-      name: 'Default Channel 2',
-      importance:AndroidImportance.HIGH
-    });
-
-    // Display a notification
-    await notifee.displayNotification({
-      title: '<p style="color: #4caf50;"><b>Incomming Call</span></p></b></p> ',
-      subtitle: '&#129395;',
-      body:
-        'Incomming Video Call from mahesh',
-      android: {
-        channelId,
-        color: '#4caf50',
-        actions: [
-          {
-            title: '<p style="color: #f44336;"><b>Reject...</b></p>',
-            pressAction: { id: 'reject' },
-          },
-          {
-            title: '<b>Accept</b>',
-            pressAction: { id: 'accept' },
-          }
-          
-        ],
-      },
-    });
-  }
+ 
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <Header
         user={user}
         // handelLogout={route?.params?.handelLogout}
-        handelSearchData={(query) => {}}
+        handelSearchData={(query) => { }}
       />
-      <ScrollView>
+
+{/* {loading && 
+        <ActivityIndicator size={'large'} color={'#555'}  style={{alignSelf:'center'}} />
+        
+        } */}
+      
         <SwipeListView
           data={listViewData}
           renderItem={(data) => (
-            <Pressable onPress={() => navigation.navigate('ChatDetails', {user:data.item, userId:user?.id, recipientId: data.item.id, UserName: user.first_name})} style={styles.listItem}>
+            <Pressable onPress={() => navigation.navigate('ChatDetails', { user: data.item, userId: user?.id, recipientId: data.item.id, UserName: user?.name })} style={styles.listItem}>
               <Image
-                source={{ uri: data.item.profile }}
+                source={{ uri: data.item.profile_image ?? 'https://calculator.acuitysoftware.co/Calculator/calculator-admin/public/assets/no_image.png' }}
                 style={styles.profileImage}
               />
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{data.item.first_name} {data.item.last_name}</Text>
                 <Text style={styles.userMessage}><MaterialCommunityIcons size={responsiveFontSize(2.2)} name='check-all' color={'#2FBFFF'} />{" Hii , 7:05 PM"}</Text>
               </View>
-              <Text style={styles.messageCount}>1</Text>
+              {/* <Text style={styles.messageCount}>1</Text> */}
             </Pressable>
           )}
           renderHiddenItem={(data) => (
             <LinearGradient start={{ x: 0, y: 1 }} colors={['#8C228A', '#DF0D89']} style={styles.hiddenButtonsContainer}>
-              <TouchableOpacity onPress={() => navigation.navigate('ChatDetails', {user:data.item, userId:user?.id, recipientId: data.item.id, UserName: user.first_name})} style={styles.hiddenButton}>
+              <TouchableOpacity onPress={() => navigation.navigate('ChatDetails', { user: data.item, userId: user?.id, recipientId: data.item.id, UserName: user.first_name })} style={styles.hiddenButton}>
                 <Ionicons color={'#fff'} name='chatbubble-ellipses-outline' size={responsiveFontSize(2.8)} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => startAudioCall(data.item.id)} style={styles.hiddenButton}>
-                <Feather color={'#fff'} name='phone-call' size={responsiveFontSize(2.6)} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => startVideoCall(data.item.id,data.item.first_name,data.item.remember_token)} style={styles.hiddenButton}>
+              <ZegoSendCallInvitationButton
+                invitees={[{ userID: String(data.item.id), userName: data.item.first_name }]}
+                isVideoCall={false}
+                resourceID={"calculator_video_call"} // Please fill in the resource ID name that has been configured in the ZEGOCLOUD's console here.
+              />
+
+              <ZegoSendCallInvitationButton
+                invitees={[{ userID: String(data.item.id), userName: data.item.first_name }]}
+                isVideoCall={true}
+                resourceID={"calculator_video_call"} // Please fill in the resource ID name that has been configured in the ZEGOCLOUD's console here.
+              />
+              {/* <TouchableOpacity onPress={() => startVideoCall(data.item.id,data.item.first_name,data.item.remember_token)} style={styles.hiddenButton}>
                 <Feather color={'#fff'} name='video' size={responsiveFontSize(2.8)} />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </LinearGradient>
           )}
           rightOpenValue={-responsiveWidth(35)}
+          refreshControl={
+          <RefreshControl 
+            refreshing={loading} 
+            onRefresh={_onRefresh}
+            tintColor="#F8852D"/>}
         />
-      </ScrollView>
+
+        
+      
     </View>
   );
 };
