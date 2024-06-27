@@ -1850,6 +1850,11 @@
     opencollective-postinstall "^2.0.3"
     superstruct "^0.6.2"
 
+"@react-native-firebase/firestore@^20.1.0":
+  version "20.1.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/firestore/-/firestore-20.1.0.tgz#8124aa286108a7e1c61c366d619bdfa4e4718947"
+  integrity sha512-g8na4jm7V+nBctzjeSyraK9hygOTPDv3nfkl4E+Nh7nB9DEgS74FrXXezRPVJKdkE0Nw9cWSJ1gU1tTA50ZEpg==
+
 "@react-native-firebase/messaging@^20.1.0":
   version "20.1.0"
   resolved "https://registry.yarnpkg.com/@react-native-firebase/messaging/-/messaging-20.1.0.tgz#02026259c74d1725dfc5216158b05bc6655e7951"
