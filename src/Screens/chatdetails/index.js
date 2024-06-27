@@ -28,14 +28,16 @@ const ChatDetails = ({ props, route, navigation}) => {
 	const recipientId = route?.params?.recipientId;
     const user = route?.params?.user;
     const UserName = route?.params?.UserName;
+    const [status,setstatus] = useState(null)
 
 
   return (
     <View style={{flex:1}}>
       <HeaderBack
 	  user={user}
+    status={status}
  	  />
-    <Chat userId={userId} UserName={UserName} recipientId={recipientId} />
+    <Chat userId={recipientId} UserName={UserName} currentuser={userId} setstatus={setstatus} />
     </View>
 
   )

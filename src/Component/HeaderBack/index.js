@@ -11,7 +11,8 @@ import { Calibri } from '../../Constants/Fonts';
 import ZegoUIKitPrebuiltCallService from '@zegocloud/zego-uikit-prebuilt-call-rn'
 import Modal from "react-native-modal";
 import { ZegoSendCallInvitationButton } from '@zegocloud/zego-uikit-prebuilt-call-rn'
-const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const HeaderBack = ({ menuClicks,title,icon,custom, user,status }) => {
     const {StatusBarManager} = NativeModules;
 
     const height = StatusBarManager.HEIGHT;
@@ -65,8 +66,14 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
     
   }
 	
-	const handelLogoutUser = () => {
-		navigation.navigate('Login');
+	const handelLogoutUser = async () => {
+    try {
+      await AsyncStorage.removeItem('USER_DATA')
+      navigation.replace('Initial')
+   } catch (error) {
+     console.log(error)
+     // Error saving data
+   }
 	  };
 	
     return (
@@ -82,7 +89,7 @@ const HeaderBack = ({ menuClicks,title,icon,custom, user }) => {
             />
             <View style={{marginLeft:5}}>
             <Text style={{color:'#000',fontSize:responsiveScreenFontSize(2),letterSpacing:.5,fontFamily:Calibri.bold,}}>{user?.first_name} {user?.last_name}</Text>
-            <Text style={{color:'#000',fontSize:responsiveFontSize(1.5),letterSpacing:.5,}}>Online</Text>
+            <Text style={{color:'#000',fontSize:responsiveFontSize(1.5),letterSpacing:.5,}}>{status}</Text>
             </View>
             <View style={{width:'34%',flexDirection:'row',position:'absolute',right:5}}>
             <ZegoSendCallInvitationButton

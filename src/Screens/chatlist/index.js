@@ -79,6 +79,7 @@ const ChatList = ({ route, navigation }) => {
           renderItem={(data) => (
             <Pressable onPress={() => navigation.navigate('ChatDetails', { user: data.item, userId: user?.id, recipientId: data.item.id, UserName: user?.name })} style={styles.listItem}>
               <Image
+              resizeMode='stretch'
                 source={{ uri: data.item.profile_image ?? 'https://calculator.acuitysoftware.co/Calculator/calculator-admin/public/assets/no_image.png' }}
                 style={styles.profileImage}
               />
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     height: responsiveFontSize(5.5),
     width: responsiveFontSize(5.5),
     marginLeft: responsiveFontSize(3),
-    borderRadius: responsiveFontSize(3),
+    borderRadius: responsiveFontSize(13),
   },
   userInfo: {
     marginLeft: responsiveWidth(2.5),
@@ -157,7 +158,9 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: responsiveFontSize(2),
   },
-  userMessage: {},
+  userMessage: {
+    color:'#555'
+  },
   messageCount: {
     padding: 3,
     paddingHorizontal: 8,

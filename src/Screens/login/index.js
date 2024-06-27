@@ -139,6 +139,7 @@ const Login = ({ navigation }) => {
        let bodyContent = new FormData();
        bodyContent.append("email", email);
        bodyContent.append("password", pass);
+       bodyContent.append("remember_token", token);
        
        let response = await fetch("https://calculator.acuitysoftware.co/Calculator/calculator-admin/api/login", { 
          method: "POST",

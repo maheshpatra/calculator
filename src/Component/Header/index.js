@@ -71,7 +71,7 @@ const Header = ({user, menuClicks, title, icon, handelSearchData }) => {
 	const handelLogoutUser = async () => {
     try {
        await AsyncStorage.removeItem('USER_DATA')
-       navigation.replace('Login')
+       navigation.replace('Initial')
     } catch (error) {
       console.log(error)
       // Error saving data
